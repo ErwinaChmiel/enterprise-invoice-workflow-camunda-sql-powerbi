@@ -1,4 +1,4 @@
-# Opis procesu – obsługa faktur kosztowych (PL)
+# Opis procesu – obsługa faktur kosztowych
 
 ## 1. Cel procesu
 
