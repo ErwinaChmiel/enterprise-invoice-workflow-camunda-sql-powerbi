@@ -1,127 +1,173 @@
-11. **Zakończenie ścieżki PO-based**
-    - Proces kończy się zdarzeniem „Faktura zaksięgowana”.
+# Business Context – Invoice Processing in a Large Corporation (EN)
+
+## 1. Introduction
+
+This project presents a standardized **Accounts Payable (AP)** process for handling cost invoices in a large multi-entity organization.  
+The goal is to demonstrate how to:
+
+- design a business process,
+- map it to a data model,
+- and build management reporting on top of it.
+
+The process is implemented as a BPMN model (Camunda), a database schema (SQL Server) and sample dashboards (Power BI).
 
 ---
 
-## 6. Ścieżka dla faktur bez PO (non-PO)
+## 2. Corporate environment
 
-### 6.1. Przypisanie kosztów
+Assumptions:
 
-5. **Przypisanie do centrum kosztów i konta (kontowanie)**
-   - Tworzone jest zadanie użytkownika dla AP Clerk lub właściciela kosztu.
-   - Użytkownik uzupełnia:
-     - centrum kosztów (Cost Center),
-     - konto księgowe (GL Account),
-     - ewentualny kod projektu / zlecenia wewnętrznego,
-     - opis merytoryczny (np. „Usługi konsultingowe – projekt X”).
+- The company operates multiple legal entities (**Company Codes**) in different countries.
+- Every month it receives **thousands of invoices** from hundreds of vendors (utilities, services, licenses, consulting, subcontractors).
+- The organization uses a central ERP system (e.g. SAP / Oracle), but the standard invoice approval workflow is:
+  - not flexible enough,
+  - hard to report on,
+  - and does not provide sufficient transparency.
 
-6. **Walidacja kontowania**
-   - System weryfikuje, czy:
-     - centrum kosztów jest aktywne,
-     - konto księgowe jest poprawne dla danego typu kosztu,
-     - waluta i kwoty są spójne.
+The Accounts Payable department is responsible for accurate and timely posting of invoices while ensuring compliance with:
 
-### 6.2. Wyznaczenie ścieżki akceptacji
-
-7. **Automatyczne wyznaczenie approverów**
-   - Na podstawie:
-     - kwoty faktury,
-     - centrum kosztów,
-     - spółki / kraju,
-   - system wyznacza jeden lub kilka poziomów akceptacji, np.:
-     - poziom 1 – kierownik działu,
-     - poziom 2 – dyrektor/ CFO (dla kwot powyżej określonego progu).
-
-### 6.3. Wielopoziomowa akceptacja
-
-8. **Akceptacja 1. poziomu (Line Manager)**
-   - Do kierownika działu trafia zadanie:
-     - „Sprawdź i zatwierdź fakturę non-PO”.
-   - Kierownik może:
-     - zaakceptować fakturę,
-     - odrzucić fakturę,
-     - odesłać do korekty (np. zmiana centrum kosztów).
-
-9. **Decyzja: czy potrzebny jest 2. poziom akceptacji?**
-   - Jeśli kwota przekracza próg określony w polityce finansowej:
-     - faktura kierowana jest do approvera 2. poziomu.
-   - Jeśli nie – przechodzi od razu do księgowania.
-
-10. **Akceptacja 2. poziomu (wyższy poziom)**
-    - Approver 2. poziomu (np. dyrektor finansowy) otrzymuje zadanie:
-      - „Zatwierdź fakturę o podwyższonej wartości”.
-    - Może:
-      - zaakceptować fakturę,
-      - odrzucić fakturę,
-      - poprosić o dodatkowe wyjaśnienia.
-
-11. **Decyzja końcowa w ścieżce non-PO**
-    - W przypadku akceptacji na wszystkich wymaganych poziomach faktura przechodzi do księgowania.
-    - W przypadku odrzucenia – faktura otrzymuje status „Rejected”, a proces kończy się zdarzeniem „Faktura odrzucona”.
-
-### 6.4. Księgowanie faktury non-PO
-
-12. **Przygotowanie danych księgowych**
-    - Wykorzystywane są informacje o centrum kosztów, kontach GL i opisach.
-    - Weryfikowana jest zgodność sum pozycji z wartością nagłówka faktury.
-
-13. **Księgowanie w ERP (symulacja)**
-    - Podobnie jak w ścieżce PO-based faktura otrzymuje status „Posted” wraz z numerem dokumentu księgowego.
-
-14. **Zakończenie ścieżki non-PO**
-    - Proces kończy się zdarzeniem „Faktura zaksięgowana”.
+- internal control rules (cost control, authorizations),
+- and audit requirements (full approval trail and decision history).
 
 ---
 
-## 7. Eskalacje i kontrola SLA
+## 3. Business problem
 
-W procesie zdefiniowane są mechanizmy czasowe (SLA):
+Typical issues in the existing process:
 
-- Jeśli zadanie akceptacji nie zostanie wykonane w określonym czasie (np. 3 dni robocze):
-  - system wysyła przypomnienie do approvera,
-  - może również wysłać powiadomienie do jego przełożonego (eskalacja).
+- Lack of a unified workflow – each entity handles invoices differently, often via emails and spreadsheets.
+- Limited visibility of invoice status – it is hard to see where a specific invoice is stuck and why it has not been posted.
+- Long lead time from invoice receipt to posting:
+  - invoices sit in approvers’ mailboxes,
+  - there are no systematic reminders and escalations.
+- Reporting challenges:
+  - no central repository containing invoices and approval steps,
+  - reports are prepared manually in Excel.
 
-- W przypadku długotrwałego braku decyzji:
-  - faktura może otrzymać status „Expired” lub
-  - zostać ponownie skierowana do AP Clerk w celu interwencji.
+Additionally:
 
-Dane o przekroczeniach SLA są później analizowane w raportach Power BI.
-
----
-
-## 8. Przykładowe warianty procesu
-
-Poniższe warianty nie są modelowane w pełnych szczegółach, ale proces został zaprojektowany tak, aby można je było łatwo uwzględnić:
-
-- **Faktury korygujące (nota kredytowa / debit note):**
-  - powiązanie z fakturą pierwotną,
-  - podobna ścieżka akceptacji, lecz z dodatkową walidacją różnicy.
-
-- **Faktury w walutach obcych:**
-  - dodatkowy krok ustalenia kursu wymiany,
-  - raportowanie zarówno w walucie transakcji, jak i w walucie lokalnej.
-
-- **Faktury podlegające szczególnym zasadom podatkowym:**
-  - np. odwrotne obciążenie, mechanizm podzielonej płatności (split payment),
-  - konieczność wyboru odpowiedniego schematu podatkowego.
-
-- **Faktury oznaczone jako pilne:**
-  - możliwość oznaczenia faktury flagą „priority”,
-  - krótsze SLA i szybsze przypomnienia.
+- Some invoices should be linked to existing Purchase Orders (PO), but in practice many are entered as non-PO.
+- There is no robust duplicate control (same invoice posted more than once).
 
 ---
 
-## 9. Stany końcowe procesu
+## 4. Project goals
 
-Proces może zakończyć się w jednym z następujących stanów:
+The project aims to:
 
-- **Faktura zaksięgowana (Posted)**  
-  Dokument został poprawnie zaksięgowany w systemie ERP.
+1. **Standardize the AP process** across the entire organization:
+   - a common process model,
+   - clear roles, tasks and decision points.
 
-- **Faktura odrzucona (Rejected)**  
-  W toku weryfikacji ustalono, że faktura nie powinna zostać zaksięgowana (np. błędny dostawca, brak usługi, duplikat).
+2. **Provide transparency and status tracking:**
+   - ability to answer: “At which stage is this invoice and who is responsible now?”.
 
-- **Faktura wygasła / nieobsłużona (Expired)**  
-  Proces przekroczył zdefiniowane limity czasowe bez podjęcia decyzji – wymaga interwencji manualnej i dodatkowej analizy.
+3. **Reduce invoice processing time:**
+   - automated task routing,
+   - reminders and escalations after SLA breaches,
+   - clear approval paths (levels, amount thresholds).
 
-Każda zmiana statusu jest zapisywana w historii, co umożliwia pełne śledzenie ścieżki życia faktury oraz późniejszą analizę w systemie raportowym.
+4. **Support cost control and audit:**
+   - full status and approval history,
+   - logging who approved or rejected the invoice, and when.
+
+5. **Enable management reporting:**
+   - KPIs for the AP department,
+   - analysis of delays and bottlenecks,
+   - cost overview by company, department and cost center.
+
+---
+
+## 5. Stakeholders
+
+Main stakeholder groups:
+
+- **AP Department (Accounts Payable):**
+  - invoice registration,
+  - initial validation,
+  - coordination of approvals and vendor communication.
+
+- **Cost owners / Line managers:**
+  - confirming the validity of costs,
+  - approving non-PO invoices,
+  - resolving discrepancies for PO invoices.
+
+- **Finance Directors / CFO / Controlling:**
+  - approving high-value invoices,
+  - monitoring budgets and cost structure,
+  - defining reporting requirements.
+
+- **IT / System owners:**
+  - maintaining ERP integration,
+  - configuring workflows in the process engine.
+
+- **Internal and external audit:**
+  - checking compliance with procedures,
+  - reviewing completeness of approval history.
+
+---
+
+## 6. Project scope
+
+In scope:
+
+- **Business process** for cost invoice handling:
+  - from invoice receipt,
+  - through registration, validation and approval,
+  - up to posting to ERP.
+
+- **Support for two invoice types:**
+  - invoices with Purchase Order (PO-based),
+  - invoices without PO (non-PO).
+
+- **Data model in Microsoft SQL Server:**
+  - vendors, company codes,
+  - invoice headers and lines,
+  - simplified purchase orders,
+  - approval decisions and status history.
+
+- **Reporting in Power BI:**
+  - AP performance KPIs,
+  - SLA and delay analysis,
+  - cost structure by organization,
+  - exceptions: rejected invoices, large deviations, invoices requiring manual intervention.
+
+---
+
+## 7. Out of scope
+
+Out of scope:
+
+- Full integration with a real ERP system (SAP / Oracle) – posting is simulated.
+- Actual OCR and email ingestion – the project assumes invoice data is already structured.
+- Detailed modelling of tax and legal specifics for each country.
+
+---
+
+## 8. Key assumptions
+
+- Each invoice has exactly one vendor and company code.
+- Each invoice may or may not have a PO number (PO-based vs non-PO).
+- For non-PO invoices, at least:
+  - one cost center,
+  - and one GL account must be assigned.
+- The approval path depends on:
+  - invoice amount,
+  - organizational structure,
+  - and optionally cost type.
+
+---
+
+## 9. Example KPIs
+
+Example measures that can be derived from the data model:
+
+- Average time from **invoice receipt** to **posting**.
+- % of invoices posted **before Due Date**.
+- Share of PO vs non-PO invoices.
+- Number of invoices per approver / department.
+- Count and share of rejected invoices.
+- Number of invoices with exceptions (PO mismatch, missing goods receipt, other deviations).
+- Costs by company, department, cost center and vendor.
+
+These KPIs are used in Power BI reports.
