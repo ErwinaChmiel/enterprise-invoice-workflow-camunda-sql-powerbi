@@ -1,4 +1,4 @@
-# Business Context – Invoice Processing in a Large Corporation (EN)
+# Business Context – Invoice Processing in a Large Corporation
 
 ## 1. Introduction
 
